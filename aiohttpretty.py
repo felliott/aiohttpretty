@@ -35,11 +35,20 @@ class ImmutableFurl:
     def __eq__(self, other):
         return hash(self) == hash(other)
 
-    def __hash__(self):
-        return hash(self.url + ''.join([
+    def show_params(self):
+        return repr(self.params).replace(' ', '')
+
+    def get_hashable(self):
+        return self.url + ''.join([
             self.params[x] or ''
             for x in sorted(self.params)
-        ]))
+        ])
+
+    def __hash__(self):
+        return hash(self.get_hashable())
+
+    def __str__(self):
+        return self.get_hashable()
 
 class _MockStream(aiohttp.streams.StreamReader):
     def __init__(self, data):
