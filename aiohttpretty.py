@@ -1,6 +1,7 @@
 import sys
 import copy
 import json
+import pprint
 import asyncio
 import collections
 
@@ -97,6 +98,15 @@ class _AioHttPretty:
         params = kwargs.get('params', None)
         url = ImmutableFurl(uri, params=params)
 
+        pprint.pprint("********  FakeRequest **********")
+        pprint.pprint("***GIVEN_URI:" + str(uri))
+        pprint.pprint("***GIVEN_PARAMS:" + repr(params))
+        pprint.pprint("***REAL_URL:" + str(url._furl))
+        pprint.pprint("***PARAMS:" + url.show_params())
+        pprint.pprint("***HASHABLE_URL:" + url.get_hashable())
+        pprint.pprint("***TUPLE_HASHVAL:" + str(hash((method, url))))
+        pprint.pprint("******** /FakeRequest **********")
+
         try:
             response = self.registry[(method, url)]
         except KeyError:
@@ -109,7 +119,20 @@ class _AioHttPretty:
                 raise Exception('No responses left.')
 
         yield from self.process_request(**kwargs)
-        self.calls.append(self.make_call(method=method, uri=ImmutableFurl(uri, params=kwargs.pop('params', None)), **kwargs))
+
+        post_params = kwargs.pop('params', None)
+        call_url = ImmutableFurl(uri, params=post_params)
+        call = self.make_call(method=method, uri=call_url, **kwargs)
+        self.calls.append(call)
+
+        pprint.pprint("********  RegisterCall **********")
+        pprint.pprint("***GIVEN_URI:" + str(uri))
+        pprint.pprint("***GIVEN_PARAMS:" + repr(post_params))
+        pprint.pprint("***REAL_URL:" + str(call_url))
+        pprint.pprint("***KWARGS:" + repr(kwargs))
+        pprint.pprint("***CALL:" + repr(call))
+        pprint.pprint("******** /RegisterCall **********")
+
         mock_response = aiohttp.client.ClientResponse(method, uri)
         mock_response.content = _wrap_content_stream(response.get('body', 'aiohttpretty'))
 
@@ -133,6 +156,15 @@ class _AioHttPretty:
 
         self.registry[(method, url)] = options.get('responses', options)
 
+        pprint.pprint("############  REGISTER ###########")
+        pprint.pprint("###GIVEN_URI:" + str(uri))
+        pprint.pprint("###GIVEN_PARAMS:" + repr(params))
+        pprint.pprint("###REAL_URL:" + str(url._furl))
+        pprint.pprint("###PARAMS:" + url.show_params())
+        pprint.pprint("###HASHABLE_URL:" + url.get_hashable())
+        pprint.pprint("###TUPLE_HASHVAL:" + str(hash((method, url))))
+        pprint.pprint("############ /REGISTER ###########")
+
     def register_json_uri(self, method, uri, **options):
         body = json.dumps(options.pop('body', None)).encode('utf-8')
         headers = {'Content-Type': 'application/json'}
@@ -151,20 +183,39 @@ class _AioHttPretty:
 
     def compare_call(self, first, second):
         for key, value in first.items():
+            pprint.pprint("~~~~~  CallCompare ~~~~~~~")
+            pprint.pprint("~~~K: " + key)
             if second.get(key) != value:
+                pprint.pprint("~~~V: first: " + str(value) + "    second: " + str(second.get(key)))
+                pprint.pprint("~~~~~ /CallCompare ~~~~~~~")
                 return False
         return True
 
     def has_call(self, uri, check_params=True, **kwargs):
-        kwargs['uri'] = ImmutableFurl(uri, params=kwargs.pop('params', None))
+        params = kwargs.pop('params', None)
+        call_url = ImmutableFurl(uri, params=params)
 
+        pprint.pprint("########  HasCall ########")
+        pprint.pprint("###GIVEN_URI:" + str(uri))
+        pprint.pprint("###GIVEN_PARAMS:" + repr(params))
+        pprint.pprint("###REAL_URL:" + str(call_url))
+        pprint.pprint("###KWARGS:" + repr(kwargs))
+
+        kwargs['uri'] = call_url
+
+        ret = False
         for call in self.calls:
+            pprint.pprint("###CALL:" + repr(call))
+
             if not check_params:
                 call = copy.deepcopy(call)
                 call['uri'] = call['uri'].with_out_params()
             if self.compare_call(kwargs, call):
-                return True
-        return False
+                ret = True
+
+        pprint.pprint("######## /HasCall ########")
+
+        return ret
 
 
 sys.modules[__name__] = _AioHttPretty()
