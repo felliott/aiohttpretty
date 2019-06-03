@@ -9,14 +9,45 @@ from yarl import URL
 from furl import furl
 from multidict import CIMultiDict
 from aiohttp import ClientSession
+from aiohttp.payload import Payload
 from aiohttp.helpers import TimerNoop
 from aiohttp.streams import StreamReader
 from aiohttp.client import ClientResponse
+from aiohttp.abc import AbstractStreamWriter
 from aiohttp.base_protocol import BaseProtocol
 
 
 # TODO: Add static type checker with `mypy`
 # TODO: Update docstr for most methods
+
+class DummyStreamWriter(AbstractStreamWriter):
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def write(self, chunk):
+        pass
+
+    async def write_eof(self, chunk: bytes=b'') -> None:
+        """Write last chunk."""
+
+    async def drain(self) -> None:
+        """Flush the write buffer."""
+        pass
+
+    def enable_compression(self, encoding: str='deflate') -> None:
+        """Enable HTTP body compression"""
+        pass
+
+    def enable_chunking(self) -> None:
+        """Enable HTTP chunked mode"""
+        pass
+
+    async def write_headers(self, status_line: str,
+                            headers: 'CIMultiDict[str]') -> None:
+        """Write HTTP headers"""
+        pass
+
 
 class ImmutableFurl:
 
@@ -103,6 +134,8 @@ class _AioHttPretty:
         data = kwargs.get('data')
         if isinstance(data, asyncio.StreamReader):
             await data.read()
+        elif isinstance(data, Payload):
+            await data.write(DummyStreamWriter())
 
     async def fake_request(self, method, uri, **kwargs):
 
